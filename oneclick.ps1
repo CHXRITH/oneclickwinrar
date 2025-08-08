@@ -1,7 +1,6 @@
 # oneclickrar.ps1
 # A script to install and license WinRAR with a simple GUI suitable for irm|iex
-# Made with ♥ by Charith Pramodya Senanayake
-# Rewritten by AI for irm|iex compatibility
+# Corrected by AI for proper UI construction
 
 <#
     .SYNOPSIS
@@ -10,73 +9,80 @@
 #>
 
 #region GUI Setup
-# Create a minimal WPF window for progress updates
-[void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms')
+# Load the necessary assemblies for WPF
 [void][System.Reflection.Assembly]::LoadWithPartialName('PresentationFramework')
 [void][System.Reflection.Assembly]::LoadWithPartialName('WindowsBase')
 [void][System.Reflection.Assembly]::LoadWithPartialName('System.Xaml')
 
-$script:winRARUI = [System.Windows.Window]::new()
-$script:winRARUI.Title = "WinRAR One-Click Installer"
-$script:winRARUI.Height = 150
-$script:winRARUI.Width = 400
-$script:winRARUI.WindowStartupLocation = 'CenterScreen'
-$script:winRARUI.ResizeMode = 'NoResize'
-$script:winRARUI.WindowStyle = 'None'
-$script:winRARUI.AllowsTransparency = $true
-$script:winRARUI.Background = [System.Windows.Media.Brushes]::Transparent
+# Create the main window
+$winRARUI = [System.Windows.Window]::new()
+$winRARUI.Title = "WinRAR One-Click Installer"
+$winRARUI.Height = 150
+$winRARUI.Width = 400
+$winRARUI.WindowStartupLocation = 'CenterScreen'
+$winRARUI.ResizeMode = 'NoResize'
+$winRARUI.WindowStyle = 'None'
+$winRARUI.Background = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromArgb(255, 30, 30, 30))
 
-$grid = [System.Windows.Controls.Grid]::new()
-$grid.Background = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromArgb(255, 30, 30, 30))
-$grid.Margin = [System.Windows.Thickness]::new(10)
-$grid.CornerRadius = [System.Windows.CornerRadius]::new(8)
+# Create a border to give the window rounded corners and a slight margin
+$border = [System.Windows.Controls.Border]::new()
+$border.CornerRadius = [System.Windows.CornerRadius]::new(8)
+$border.Margin = [System.Windows.Thickness]::new(10)
 
+# Create a stack panel for the content layout
 $stackPanel = [System.Windows.Controls.StackPanel]::new()
 $stackPanel.Margin = [System.Windows.Thickness]::new(10)
 
-$script:statusText = [System.Windows.Controls.TextBlock]::new()
-$script:statusText.Text = "Initializing..."
-$script:statusText.FontSize = 14
-$script:statusText.Foreground = [System.Windows.Media.Brushes]::White
-$script:statusText.HorizontalAlignment = 'Center'
-$stackPanel.Children.Add($script:statusText)
+# Create TextBlocks for status messages
+$statusText = [System.Windows.Controls.TextBlock]::new()
+$statusText.Text = "Initializing..."
+$statusText.FontSize = 14
+$statusText.Foreground = [System.Windows.Media.Brushes]::White
+$statusText.HorizontalAlignment = 'Center'
+$statusText.Margin = [System.Windows.Thickness]::new(0, 5, 0, 0)
 
-$script:detailText = [System.Windows.Controls.TextBlock]::new()
-$script:detailText.Text = ""
-$script:detailText.FontSize = 12
-$script:detailText.Opacity = 0.7
-$script:detailText.Foreground = [System.Windows.Media.Brushes]::White
-$script:detailText.HorizontalAlignment = 'Center'
-$stackPanel.Children.Add($script:detailText)
+$detailText = [System.Windows.Controls.TextBlock]::new()
+$detailText.Text = ""
+$detailText.FontSize = 12
+$detailText.Opacity = 0.7
+$detailText.Foreground = [System.Windows.Media.Brushes]::White
+$detailText.HorizontalAlignment = 'Center'
+$detailText.Margin = [System.Windows.Thickness]::new(0, 4, 0, 0)
 
-$script:progressBar = [System.Windows.Controls.ProgressBar]::new()
-$script:progressBar.Height = 10
-$script:progressBar.Margin = [System.Windows.Thickness]::new(0, 10, 0, 0)
-$script:progressBar.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromArgb(255, 13, 183, 237))
-$script:progressBar.Background = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromArgb(255, 46, 46, 46))
-$script:progressBar.BorderBrush = [System.Windows.Media.Brushes]::Transparent
-$stackPanel.Children.Add($script:progressBar)
+# Create the progress bar
+$progressBar = [System.Windows.Controls.ProgressBar]::new()
+$progressBar.Height = 10
+$progressBar.Margin = [System.Windows.Thickness]::new(0, 10, 0, 0)
+$progressBar.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromArgb(255, 13, 183, 237))
+$progressBar.Background = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromArgb(255, 46, 46, 46))
+$progressBar.BorderBrush = [System.Windows.Media.Brushes]::Transparent
 
-$grid.Content = $stackPanel
-$script:winRARUI.Content = $grid
+# Add controls to the stack panel
+$stackPanel.Children.Add($statusText)
+$stackPanel.Children.Add($detailText)
+$stackPanel.Children.Add($progressBar)
+
+# Set the border's content to the stack panel, and the window's content to the border
+$border.Child = $stackPanel
+$winRARUI.Content = $border
 
 # Dispatcher to update UI from a different thread if needed, or simply from the main thread
 function Update-UI {
     param ($Status, $Detail = "", $Progress = -1)
-    [System.Windows.Application]::Current.Dispatcher.Invoke([Action]{
-        if ($null -ne $Status) { $script:statusText.Text = $Status }
-        if ($null -ne $Detail) { $script:detailText.Text = $Detail }
-        if ($Progress -ne -1)  { $script:progressBar.Value = $Progress }
-    })
+    if ([System.Windows.Application]::Current) {
+        [System.Windows.Application]::Current.Dispatcher.Invoke([Action]{
+            if ($null -ne $Status) { $statusText.Text = $Status }
+            if ($null -ne $Detail) { $detailText.Text = $Detail }
+            if ($Progress -ne -1)  { $progressBar.Value = $Progress }
+        })
+    }
 }
 
 # The installer will run in a separate runspace so the UI thread doesn't freeze
-$script:ps = [PowerShell]::Create().AddScript({
-    # The actual installation logic goes here
+$worker = {
     param($UIUpdateCallback, $UILogger)
 
-    # region UI_PROXIES
-    # These functions allow the child runspace to communicate back to the main UI thread
+    #region UTILITY_FUNCTIONS
     function Update-Gui {
         param ($Status, $Detail = "", $Progress = -1)
         $UIUpdateCallback.DynamicInvoke($Status, $Detail, $Progress)
@@ -86,9 +92,7 @@ $script:ps = [PowerShell]::Create().AddScript({
         param($Message)
         $UILogger.DynamicInvoke($Message)
     }
-    #endregion
 
-    #region UTILITY_FUNCTIONS
     function New-Toast {
         param (
             [String]$AppId = "oneclickwinrar",
@@ -214,31 +218,33 @@ b8af4562cb13609a2ca469bf36fb8da2eda6f5e978bf1205660302
         if (Test-Path "$env:TEMP\winrar-installer.exe") {
             Remove-Item "$env:TEMP\winrar-installer.exe" -Force -ErrorAction SilentlyContinue
         }
-        # Close the UI when done
+        # Shutdown the UI
         [System.Windows.Application]::Current.Shutdown()
     }
-})
+}
+#endregion
 
 # Create a runspace for the installer logic to prevent the UI from freezing
 $runspace = [System.Management.Automation.Runspaces.RunspaceFactory]::CreateRunspace()
 $runspace.Open()
-$script:ps.Runspace = $runspace
+$ps = [PowerShell]::Create().AddScript($worker)
+$ps.Runspace = $runspace
 
 # Pass a callback function from the main thread to the installer runspace to update the UI
 $uiCallback = [Action[string, string, int]]{ param($status, $detail, $progress) { Update-UI $status $detail $progress } }
 $logCallback = [Action[string]]{ param($message) { Write-Host $message } }
-$script:ps.AddArgument($uiCallback).AddArgument($logCallback)
+$ps.AddArgument($uiCallback).AddArgument($logCallback)
 
 # Start the installer asynchronously
-$asyncResult = $script:ps.BeginInvoke()
+$asyncResult = $ps.BeginInvoke()
 
-# The main UI loop
+# Start the WPF application to show the window and handle the UI thread
 $app = [System.Windows.Application]::new()
 $app.ShutdownMode = 'OnLastWindowClose'
-$app.Run($script:winRARUI)
+$app.Run($winRARUI)
 
 # Clean up the runspace after the UI is closed
-$script:ps.EndInvoke($asyncResult) | Out-Null
-$script:ps.Dispose()
+$ps.EndInvoke($asyncResult) | Out-Null
+$ps.Dispose()
 $runspace.Close()
 $runspace.Dispose()
