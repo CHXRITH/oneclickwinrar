@@ -92,101 +92,117 @@ function Write-RarReg {
 # -------------------------------
 # WPF UI (dark minimal)
 # -------------------------------
+Add-Type -AssemblyName PresentationFramework, PresentationCore
+
+# Dark mode UI XAML
 $xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        Title="oneclickrar" Height="260" Width="520" WindowStartupLocation="CenterScreen"
-        ResizeMode="NoResize" WindowStyle="None" Background="#1E1E1E" >
-    <Grid>
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="oneclickrar" Height="300" Width="500"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E1E" Foreground="White"
+        FontFamily="Segoe UI" ResizeMode="NoResize" WindowStyle="None">
+    <Grid Margin="20">
         <Grid.RowDefinitions>
-            <RowDefinition Height="62" />
-            <RowDefinition Height="120" />
-            <RowDefinition Height="50" />
-            <RowDefinition Height="28" />
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Header -->
-        <StackPanel Orientation="Horizontal" Margin="18,12,18,6" Grid.Row="0">
-            <Border Width="44" Height="44" CornerRadius="8" Background="#0DB7ED" VerticalAlignment="Center">
-                <TextBlock Text="R" FontFamily="Segoe UI" FontWeight="Bold" FontSize="22" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-            </Border>
-            <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-                <TextBlock x:Name="TitleText" Text="oneclickrar" Foreground="White" FontSize="16" FontFamily="Segoe UI Semibold"/>
-                <TextBlock x:Name="SubText" Text="v$($SCRIPT_VERSION) — Dark minimal installer" Foreground="#B3B3B3" FontSize="11" Margin="0,2,0,0"/>
-            </StackPanel>
-            <!-- Close button -->
-            <Button x:Name="CloseBtn" Width="30" Height="30" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,4,0" Background="Transparent" BorderBrush="{x:Null}" Foreground="#B3B3B3" HorizontalContentAlignment="Center">
-                <TextBlock Text="✕" FontSize="14"/>
-            </Button>
-        </StackPanel>
+        <!-- Title -->
+        <TextBlock Text="Installing WinRAR" FontSize="20" FontWeight="Bold" 
+                   Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,10"/>
 
-        <!-- Main content -->
-        <StackPanel Grid.Row="1" Margin="18,0,18,0" VerticalAlignment="Center">
-            <TextBlock x:Name="StatusText" Text="Ready to install WinRAR" Foreground="#E6E6E6" FontSize="13" Margin="0,4,0,8"/>
-            <ProgressBar x:Name="MainProgress" Height="18" Minimum="0" Maximum="100" Value="0" />
-            <StackPanel Orientation="Horizontal" Margin="0,8,0,0" HorizontalAlignment="Stretch" >
-                <TextBlock x:Name="PercentText" Text="0%" Foreground="#B3B3B3" Width="50"/>
-                <TextBlock x:Name="DetailText" Text="" Foreground="#9A9A9A" FontSize="11" VerticalAlignment="Center"/>
-            </StackPanel>
-        </StackPanel>
-
-        <!-- Buttons -->
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Row="2" Margin="18,8,18,8">
-            <Button x:Name="CancelBtn" Width="90" Height="32" Margin="0,0,8,0" Background="#2A2A2A" Foreground="#E6E6E6">Cancel</Button>
-            <Button x:Name="InstallBtn" Width="120" Height="32" Background="#0DB7ED" Foreground="#0F1A1E">Install Now</Button>
+        <!-- Content -->
+        <StackPanel Grid.Row="1" VerticalAlignment="Center">
+            <ProgressBar x:Name="MainProgress" Height="20" Width="400" Value="0"
+                         Background="#2E2E2E" Foreground="#0DB7ED" BorderBrush="#2E2E2E"/>
+            <TextBlock x:Name="PercentText" Text="0%" FontSize="14" 
+                       HorizontalAlignment="Center" Margin="0,8,0,0"/>
+            <TextBlock x:Name="StatusText" Text="Waiting to start..." FontSize="12" 
+                       Opacity="0.8" HorizontalAlignment="Center" Margin="0,4,0,0"/>
         </StackPanel>
 
         <!-- Footer -->
-        <TextBlock Grid.Row="3" Text="Made with ♥ by Charith Pramodya Senanayake" Foreground="#6F6F6F" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        <TextBlock Text="Made with ♥ by Charith Pramodya Senanayake" 
+                   FontSize="10" Opacity="0.6" HorizontalAlignment="Center" 
+                   Grid.Row="2" Margin="0,10,0,0"/>
     </Grid>
 </Window>
 "@
 
-# Parse XAML
-$mgr = New-Object System.Xml.XmlDocument
-$mgr.LoadXml($xaml)
-$reader = (New-Object System.Xml.XmlNodeReader $mgr)
-$window = [Windows.Markup.XamlReader]::Load($reader)
+# Load XAML
+$reader = [System.Xml.XmlReader]::Create((New-Object System.IO.StringReader $xaml))
+$Window = [Windows.Markup.XamlReader]::Load($reader)
 
 # Controls
-$StatusText = $window.FindName("StatusText")
-$MainProgress = $window.FindName("MainProgress")
-$PercentText = $window.FindName("PercentText")
-$DetailText = $window.FindName("DetailText")
-$InstallBtn = $window.FindName("InstallBtn")
-$CancelBtn = $window.FindName("CancelBtn")
-$CloseBtn = $window.FindName("CloseBtn")
-$Window = $window
+$MainProgress = $Window.FindName("MainProgress")
+$PercentText  = $Window.FindName("PercentText")
+$StatusText   = $Window.FindName("StatusText")
 
-# Close behavior
-$CloseBtn.Add_Click({
-    if ($WORKING) {
-        if ([System.Windows.MessageBox]::Show("An operation is running. Cancel and exit?","Confirm", "YesNo", "Warning") -ne "Yes") { return }
-    }
-    $Window.Close()
-})
-
-$CancelBtn.Add_Click({
-    if ($WORKING) {
-        $Window.Tag = "cancel"
-        $StatusText.Text = "Cancelling..."
-        $DetailText.Text = ""
-    } else {
-        $Window.Close()
-    }
-})
-
-# Utility to update UI cleanly (Dispatcher)
-function Set-UI {
-    param($status = $null, $progress = $null, $percent = $null, $detail = $null)
-    $action = {
-        param($s,$p,$pc,$d)
-        if ($s -ne $null) { $StatusText.Text = $s }
-        if ($p -ne $null) { $MainProgress.Value = $p }
-        if ($pc -ne $null) { $PercentText.Text = ("{0:N0}%" -f $pc) }
-        if ($d -ne $null) { $DetailText.Text = $d }
-    }
-    $Window.Dispatcher.Invoke([action[object,object,object,object]]{ $action.Invoke($args) }, [object[]]@($status,$progress,$percent,$detail)) | Out-Null
+function Update-ProgressUI {
+    param($percent, $status)
+    $Window.Dispatcher.Invoke([action]{
+        $MainProgress.Value = $percent
+        $PercentText.Text = "$percent%"
+        $StatusText.Text = $status
+    })
 }
+
+# Background task: real WinRAR install
+$job = Start-Job -ArgumentList $Window, $MainProgress, $PercentText, $StatusText -ScriptBlock {
+    param($Window, $MainProgress, $PercentText, $StatusText)
+
+    function Step {
+        param($p, $t)
+        $Window.Dispatcher.Invoke([action]{
+            $MainProgress.Value = $p
+            $PercentText.Text = "$p%"
+            $StatusText.Text = $t
+        })
+    }
+
+    # Step 1: Internet check
+    Step 0 "Checking internet..."
+    try {
+        $null = Invoke-WebRequest -Uri "https://www.google.com" -UseBasicParsing -TimeoutSec 5
+    } catch {
+        Step 0 "No internet connection ❌"
+        Start-Sleep -Seconds 3
+        $Window.Dispatcher.Invoke({ $Window.Close() })
+        return
+    }
+    Start-Sleep -Seconds 1
+
+    # Step 2: Download WinRAR
+    Step 10 "Downloading WinRAR..."
+    $url = "https://www.rarlab.com/rar/winrar-x64-701.exe"  # adjust version if needed
+    $tmp = "$env:TEMP\winrar_installer.exe"
+    Invoke-WebRequest -Uri $url -OutFile $tmp
+    Step 50 "Download complete"
+
+    # Step 3: Install silently
+    Step 55 "Installing WinRAR..."
+    Start-Process -FilePath $tmp -ArgumentList "/S" -Wait
+    Step 80 "Installed WinRAR"
+
+    # Step 4: Apply license (if you have a rarreg.key)
+    $licenseUrl = "https://your-license-link/rarreg.key" # change this to your hosted key
+    $destPath = "$env:ProgramFiles\WinRAR\rarreg.key"
+    try {
+        Invoke-WebRequest -Uri $licenseUrl -OutFile $destPath
+        Step 90 "License applied"
+    } catch {
+        Step 90 "License skipped (not found)"
+    }
+
+    # Step 5: Done
+    Step 100 "Installation complete ✅"
+    Start-Sleep -Seconds 2
+    $Window.Dispatcher.Invoke({ $Window.Close() })
+}
+
+$Window.ShowDialog() | Out-Null
 
 # -------------------------------
 # Core install workflow (runs in background thread)
