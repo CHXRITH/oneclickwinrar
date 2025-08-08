@@ -149,60 +149,58 @@ function Update-ProgressUI {
     })
 }
 
-# Background task: real WinRAR install
-$job = Start-Job -ArgumentList $Window, $MainProgress, $PercentText, $StatusText -ScriptBlock {
-    param($Window, $MainProgress, $PercentText, $StatusText)
-
-    function Step {
-        param($p, $t)
-        $Window.Dispatcher.Invoke([action]{
-            $MainProgress.Value = $p
-            $PercentText.Text = "$p%"
-            $StatusText.Text = $t
-        })
-    }
+# Install logic runs when the window is loaded
+$Window.Add_Loaded({
+    Start-Sleep -Milliseconds 500
 
     # Step 1: Internet check
-    Step 0 "Checking internet..."
+    Update-ProgressUI 0 "Checking internet..."
     try {
         $null = Invoke-WebRequest -Uri "https://www.google.com" -UseBasicParsing -TimeoutSec 5
     } catch {
-        Step 0 "No internet connection ❌"
+        Update-ProgressUI 0 "No internet connection ❌"
         Start-Sleep -Seconds 3
-        $Window.Dispatcher.Invoke({ $Window.Close() })
+        $Window.Close()
         return
     }
     Start-Sleep -Seconds 1
 
     # Step 2: Download WinRAR
-    Step 10 "Downloading WinRAR..."
-    $url = "https://www.rarlab.com/rar/winrar-x64-701.exe"  # adjust version if needed
+    Update-ProgressUI 10 "Downloading WinRAR..."
+    $url = "https://www.rarlab.com/rar/winrar-x64-701.exe"
     $tmp = "$env:TEMP\winrar_installer.exe"
     Invoke-WebRequest -Uri $url -OutFile $tmp
-    Step 50 "Download complete"
+    Update-ProgressUI 50 "Download complete"
+    Start-Sleep -Milliseconds 500
 
     # Step 3: Install silently
-    Step 55 "Installing WinRAR..."
+    Update-ProgressUI 55 "Installing WinRAR..."
     Start-Process -FilePath $tmp -ArgumentList "/S" -Wait
-    Step 80 "Installed WinRAR"
+    Update-ProgressUI 80 "Installed WinRAR"
+    Start-Sleep -Milliseconds 500
 
-    # Step 4: Apply license (if you have a rarreg.key)
-    $licenseUrl = "https://your-license-link/rarreg.key" # change this to your hosted key
-    $destPath = "$env:ProgramFiles\WinRAR\rarreg.key"
-    try {
-        Invoke-WebRequest -Uri $licenseUrl -OutFile $destPath
-        Step 90 "License applied"
-    } catch {
-        Step 90 "License skipped (not found)"
+    # Step 4: Apply license (optional)
+    $licenseUrl = "" # If you have rarreg.key hosted somewhere
+    if ($licenseUrl -ne "") {
+        try {
+            $destPath = "$env:ProgramFiles\WinRAR\rarreg.key"
+            Invoke-WebRequest -Uri $licenseUrl -OutFile $destPath
+            Update-ProgressUI 90 "License applied"
+        } catch {
+            Update-ProgressUI 90 "License skipped (error)"
+        }
+    } else {
+        Update-ProgressUI 90 "License skipped"
     }
 
     # Step 5: Done
-    Step 100 "Installation complete ✅"
+    Update-ProgressUI 100 "Installation complete ✅"
     Start-Sleep -Seconds 2
-    $Window.Dispatcher.Invoke({ $Window.Close() })
-}
+    $Window.Close()
+})
 
 $Window.ShowDialog() | Out-Null
+
 
 # -------------------------------
 # Core install workflow (runs in background thread)
